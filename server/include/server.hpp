@@ -19,6 +19,7 @@
 #include "Poco/Util/Option.h"
 #include "Poco/Util/OptionSet.h"
 #include "Poco/Util/HelpFormatter.h"
+#include "Poco/JSON/Parser.h"
 
 #include "storage.hpp"
 
@@ -40,24 +41,55 @@ public:
 	{
 		Application& app = Application::instance();
 		app.logger().information("Connection from " + this->socket().peerAddress().toString());
+
 		while(true)
 		{
 			try
 			{	
 				app.logger().information("Waiting for request...");
-				std::string key = recv_request();
+				std::string json = receive();
+				app.logger().information("Received request: " + json);
 
-				app.logger().information("Received request: " + key);
-				auto msg = storage->get_data(key);
+				Poco::JSON::Parser parser;
+				Poco::Dynamic::Var result = parser.parse(json);
+				Poco::JSON::Object::Ptr object = result.extract<Poco::JSON::Object::Ptr>();
+				std::string request = object->getValue<std::string>("request");
+
+				std::string response_json;
+				if (request == "get")
+				{
+					std::string key = object->getValue<std::string>("key");
+
+					std::vector<std::string> resp = storage->get_data(key);
+					std::string values;
+					for (auto& value : resp)
+					{
+						if (!values.empty())
+							values += ",";
+						values += "\"";
+						values += value;
+						values += "\"";
+					}
+					response_json = "{ \"result\" : \"ok\", \"values\" : [" + values + "] }";
+				}
+				else if (request == "set")
+				{
+					std::string key = object->getValue<std::string>("key");
+					std::string value = object->getValue<std::string>("value");
+
+					storage->put_data(key, value);
+					response_json = "{ \"result\" : \"ok\" }";
+				}
 			
-				send_response(msg);
+				send(response_json);
 
-				app.logger().information("Sent " + std::to_string(msg.size()) + " items");
-				std::ostream_iterator<std::string> out_it(std::cout, "\n");
-				std::copy(msg.begin(), msg.end(), out_it);
+				app.logger().information("Sent " + response_json);
 			}
 			catch (Poco::Exception& exc)
 			{
+				std::string msg = "{ \"result\" : \"error\", \"message\" : \"" + exc.displayText() + "\"}";
+				send(msg);
+
 				app.logger().log(exc);
 			}
 		}
@@ -66,7 +98,7 @@ public:
 	}
 
 private:
-	std::string recv_request()
+	std::string receive()
 	{
 		unsigned char buffer[sizeof(size_t)];
 		this->socket().receiveBytes(buffer, sizeof(buffer));
@@ -82,17 +114,11 @@ private:
 		return buff;
 	}
 
-	void send_response(const std::vector<std::string>& msg)
+	void send(const std::string& msg)
 	{
 		size_t msg_size = msg.size();
 		this->socket().sendBytes(&msg_size, sizeof(size_t));
-
-		for(auto v: msg)
-		{
-			size_t value_size = v.size();
-			this->socket().sendBytes(&value_size, sizeof(size_t));
-			this->socket().sendBytes(v.data(), value_size);
-		}
+		this->socket().sendBytes(msg.data(), msg_size);
 	}
 
 private:
