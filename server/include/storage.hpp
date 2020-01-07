@@ -75,6 +75,17 @@ public:
 		if (!found)
 		{
 			std::unique_lock<std::mutex> lock(block_mtx);
+			auto it = block_map.find(key);
+			if (it != block_map.end())
+			{
+				result = it->second;
+				found = true;
+			}
+		}
+
+		if (!found)
+		{
+			std::unique_lock<std::mutex> lock(queue_mtx);
 			found = lookup_in_queue(key, result);
 		}
 
