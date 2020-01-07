@@ -8,9 +8,7 @@
 #include <shared_mutex>
 #include <filesystem>
 
-using key_type = std::string;
-using value_type = std::string;
-using data_map_type = std::multimap<key_type, value_type>;
+#include "storage_types.hpp"
 
 namespace fs = std::filesystem;
 

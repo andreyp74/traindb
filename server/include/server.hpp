@@ -61,24 +61,15 @@ public:
 				{
 					std::string key = object->getValue<std::string>("key");
 
-					std::vector<std::string> resp = storage->get_data(key);
-					std::string values;
-					for (auto& value : resp)
-					{
-						if (!values.empty())
-							values += ",";
-						values += "\"";
-						values += value;
-						values += "\"";
-					}
-					response_json = "{ \"result\" : \"ok\", \"values\" : [" + values + "] }";
+					std::string value = storage->get_data(key);
+					response_json = "{ \"result\" : \"ok\", \"value\" : \"" + value + "\" }";
 				}
 				else if (request == "set")
 				{
 					std::string key = object->getValue<std::string>("key");
 					std::string value = object->getValue<std::string>("value");
 
-					storage->put_data(key, value);
+					storage->put_data(key, std::move(value));
 					response_json = "{ \"result\" : \"ok\" }";
 				}
 			

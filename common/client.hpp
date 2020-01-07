@@ -22,9 +22,7 @@ namespace net
     {
     public:
         Client(const std::string& host, Poco::UInt16 port):
-            socket_addr(host, port), 
-            host(host), 
-            port(port)
+            socket_addr(host, port)
         {
         }
 
@@ -32,7 +30,7 @@ namespace net
         {
             try {
                 socket.connect(socket_addr); 
-                std::cout << "Connected to " << host << ":" << port << std::endl;
+                std::cout << "Connected to " << socket_addr.host << ":" << socket_addr.port << std::endl;
                 return true;
             }
             catch(Poco::Exception err) {
@@ -61,9 +59,6 @@ namespace net
 
         // Interface to a TCP stream socket
         StreamSocket socket;
-
-        std::string host;
-        int port;
     };
 
 }

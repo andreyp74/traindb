@@ -10,7 +10,9 @@
 #include <condition_variable>
 #include <deque>
 
+#include "version_list.hpp"
 #include "file_storage.hpp"
+
 
 class Storage
 {
@@ -25,7 +27,7 @@ public:
 
 	~Storage()
 	{
-		flush(std::unique_lock<std::mutex>(data_mtx));
+		//flush(std::unique_lock<std::mutex>(data_mtx));
 
 		persist_done = true;
 		block_ready.notify_one();
@@ -33,56 +35,58 @@ public:
 			persist_thread.join();
 	}
 
-	void put_data(key_type key, value_type value)
+	bool commit(key_type key, int version)
 	{
-		std::unique_lock<std::mutex> lock(data_mtx);
-		data.emplace(key, value);
-
-		if (++block_size == MAX_BLOCK_SIZE)
+		bool is_committed;
+		value_type value;
 		{
-			block_size = 0;
-			flush(std::move(lock));
+			std::unique_lock<std::mutex> lock(data_mtx);
+
+			auto it = data.find(key);
+			if (it == data.end())
+				return false;
+
+			is_committed = it->second.commit(version, value);
 		}
+		if (is_committed)
+			enqueue(key, value);
+
+		return is_committed;
 	}
 
-	std::vector<value_type> get_data(key_type key) const
+	int put_data(key_type key, value_type&& value)
 	{
-		std::vector<value_type> result;
+		std::unique_lock<std::mutex> lock(data_mtx);
+
+		VersionList& ls = data[key];
+		return ls.add_version(std::move(value));
+	}
+
+	value_type get_data(key_type key) const
+	{
+		value_type result;
 		bool found = true;
 
 		{
 			std::unique_lock<std::mutex> lock(data_mtx);
-			found = lookup(data, key, result);
+			found = lookup(key, result);
 		}
 
 		if (!found)
 		{
 			std::unique_lock<std::mutex> lock(block_mtx);
-			for (auto& m : block_queue)
-			{
-				found = lookup(m, key, result);
-				if (found)
-					break;
-			}
+			found = lookup_in_queue(key, result);
 		}
 
 		if (!found)
-			file_storage->get_data(key, result);
+		{
+			std::vector<value_type> result_vec;
+			file_storage->get_data(key, result_vec);
+			if (!result_vec.empty())
+				result = result_vec.back();
+		}
 
 		return result;
-	}
-
-	void flush(std::unique_lock<std::mutex>&& lock)
-	{
-		data_map_type block;
-		block.swap(data);
-		lock.unlock();
-
-		{
-			std::unique_lock<std::mutex> block_lock(block_mtx);
-			block_queue.push_back(block);
-		}
-		block_ready.notify_one();
 	}
 
 protected:
@@ -114,33 +118,67 @@ private:
 	Storage& operator=(Storage&) = delete;
 
 
-	static bool lookup(const data_map_type& m, key_type key, std::vector<value_type>& result)
+	bool lookup(key_type key, value_type& value) const
 	{
-		bool found = false;
-		auto range = m.equal_range(key);
-
-		if (range.first != range.second)
+		auto it = data.find(key);
+		if (it != data.end())
 		{
-			for (auto it = range.first; it != range.second; ++it)
-				result.push_back(it->second);
-			found = true;
+			if (it->second.get_last(value))
+				return true;
 		}
+		return false;
+	}
 
-		return found;
+	bool lookup_in_queue(key_type key, value_type& value) const
+	{
+		for (auto& m : block_queue)
+		{
+			auto it = m.find(key);
+			if (it != m.end())
+			{
+				value = it->second;
+				return true;
+			}
+		}
+		return false;
+	}
+
+	void enqueue(key_type& key, value_type& value)
+	{
+		std::unique_lock<std::mutex> block_lock(block_mtx);
+		block_map.emplace(key, value);
+
+		if (++block_size == MAX_BLOCK_SIZE)
+		{
+			data_map_type block;
+			block.swap(block_map);
+			block_lock.unlock();
+
+			{
+				std::unique_lock<std::mutex> queue_lock(queue_mtx);
+				block_queue.push_back(block);
+			}
+
+			block_size = 0;
+			block_ready.notify_one();
+		}
 	}
 
 private:
 
 	size_t MAX_BLOCK_SIZE = 1024;
 
-	data_map_type data;
+	data_map_ver_type data;
 	mutable std::mutex data_mtx;
 
 	std::unique_ptr<FileStorage> file_storage;
 
+	mutable std::mutex block_mtx;
+	data_map_type block_map;
+
 	std::atomic<size_t> block_size;
 	std::condition_variable block_ready;
-	mutable std::mutex block_mtx;
+	mutable std::mutex queue_mtx;
 	std::deque<data_map_type> block_queue;
 
 	std::thread persist_thread;
