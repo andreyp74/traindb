@@ -7,7 +7,7 @@
 
 int main()
 {
-    Client client("localhost", 9192);
+    net::Client client("localhost", 9192);
 	if (!client.connect())
 		std::cerr << "Couldn't connect to server" << std::endl;
 
@@ -39,7 +39,7 @@ int main()
 				request_json = "{ \"request\" : \"set\", \"key\" : \"" + request[1] + "\", \"value\" : \"" + request[2] + "\" }";
 			}
 			
-			client.send(request_json);
+			net::send(client.get_socket(), request_json);
 
 			std::string response_json = client.receive();
 			std::cout << "Received " << response_json << std::endl;

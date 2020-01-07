@@ -1,0 +1,37 @@
+#ifndef NET_HPP_
+#define NET_HPP_
+
+#include <string>
+
+#include "Poco/Net/StreamSocket.h"
+
+namespace net
+{
+    using namespace Poco;
+    using namespace Poco::Net;
+
+    void send(StreamSocket& socket, const std::string& request)
+    {
+        size_t size = request.size();
+        socket.sendBytes(&size, (int)sizeof(size_t));
+        socket.sendBytes(request.data(), (int)size);
+    }
+
+    std::string receive(StreamSocket& socket)
+    {
+        unsigned char buffer[sizeof(size_t)];
+        socket.receiveBytes(buffer, sizeof(buffer));
+        size_t size = *(size_t*)&buffer;
+
+        std::string msg;
+        msg.resize(size);
+        int received_bytes = 0;
+        while (received_bytes < size)
+        {
+            received_bytes += socket.receiveBytes(msg.data() + received_bytes, size - received_bytes);
+        }
+        return msg;
+    }
+}
+
+#endif //NET_HPP_

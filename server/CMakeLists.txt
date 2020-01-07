@@ -2,12 +2,20 @@ cmake_minimum_required (VERSION 3.2)
 
 project(Server CXX C)
 
-include_directories(include src "${POCO_INCLUDE_DIRS}")
+include_directories(include src ../common "${POCO_INCLUDE_DIRS}")
 
 file(GLOB_RECURSE SERVER_SRC
          RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
          ${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp
          ${CMAKE_CURRENT_SOURCE_DIR}/include/*.hpp)
+         
+file(GLOB_RECURSE COMMON_SRC
+         RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
+         ${CMAKE_SOURCE_DIR}/common/*.hpp
+         ${CMAKE_SOURCE_DIR}/common/*.cpp)
+
+source_group(Common FILES ${COMMON_SRC})
+source_group(Sources FILES ${SERVER_SRC})
 
 add_executable(${PROJECT_NAME} ${SERVER_SRC})
 add_dependencies(${PROJECT_NAME} poco)

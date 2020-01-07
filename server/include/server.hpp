@@ -22,6 +22,7 @@
 #include "Poco/JSON/Parser.h"
 
 #include "storage.hpp"
+#include "net.hpp"
 
 using namespace Poco;
 using namespace Poco::Net;
@@ -37,7 +38,7 @@ public:
 		storage(storage)
 	{}
 
-	void run()
+	void run() override
 	{
 		Application& app = Application::instance();
 		app.logger().information("Connection from " + this->socket().peerAddress().toString());
@@ -100,25 +101,12 @@ public:
 private:
 	std::string receive()
 	{
-		unsigned char buffer[sizeof(size_t)];
-		this->socket().receiveBytes(buffer, sizeof(buffer));
-		size_t size = *(size_t*)&buffer;
-
-        std::string buff;
-        buff.resize(size);
-        int received_bytes = 0;
-		while (received_bytes < size)
-		{
-			received_bytes += this->socket().receiveBytes(buff.data() + received_bytes, size - received_bytes);
-		}
-		return buff;
+		return net::receive(this->socket());
 	}
 
 	void send(const std::string& msg)
 	{
-		size_t msg_size = msg.size();
-		this->socket().sendBytes(&msg_size, sizeof(size_t));
-		this->socket().sendBytes(msg.data(), msg_size);
+		net::send(this->socket(), msg);
 	}
 
 private:
