@@ -2,11 +2,9 @@
 #define VERSION_LIST_HPP_
 
 #include <list>
-#include <string>
-#include <map>
+#include <algorithm>
 
-using key_type = std::string;
-using value_type = std::string;
+#include "storage_types.hpp"
 
 struct StoredValue
 {
@@ -61,7 +59,5 @@ private:
 	std::list<StoredValue> ver_list;
 };
 
-using data_map_ver_type = std::map<key_type, VersionList>;
-using data_map_type = std::multimap<key_type, value_type>;
 
 #endif //VERSION_LIST_HPP_
