@@ -32,7 +32,6 @@ std::vector<value_type> Storage::get_data(key_type key) const
 	std::vector<value_type> result;
 	bool found = false;
 	{
-		std::unique_lock<std::mutex> lock(data_mtx);
 		found = lookup(key, result);
 	}
 
@@ -51,6 +50,8 @@ std::vector<value_type> Storage::get_data(key_type key) const
 
 bool Storage::lookup(key_type key, std::vector<value_type>& result) const
 {
+	std::unique_lock<std::mutex> lock(data_mtx);
+
 	auto it = data.find(key);
 	if (it != data.end())
 	{
