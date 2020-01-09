@@ -1,15 +1,20 @@
 #include "block_queue.hpp"
 
-BlockQueue::BlockQueue(std::weak_ptr<FileStorage> file_storage) :
+BlockQueue::BlockQueue(std::weak_ptr<FileStorage> file_storage, size_t block_size) :
 	done(false),
-	file_storage(file_storage)
+	file_storage(file_storage),
+	block_size(block_size)
 {
-	persist_thread = std::thread(&BlockQueue::run, this);
 }
 
 BlockQueue::~BlockQueue()
 {
 	stop();
+}
+
+void BlockQueue::start()
+{
+	persist_thread = std::thread(&BlockQueue::run, this);
 }
 
 void BlockQueue::stop()
@@ -21,7 +26,7 @@ void BlockQueue::stop()
 		persist_thread.join();
 }
 
-bool BlockQueue::lookup(key_type key, std::vector<value_type>& result) const
+bool BlockQueue::lookup(const key_type& key, std::vector<value_type>& result) const
 {
 	bool found = false;
 	if (!found)
@@ -43,12 +48,12 @@ bool BlockQueue::lookup(key_type key, std::vector<value_type>& result) const
 	return found;
 }
 
-void BlockQueue::enqueue(key_type& key, value_type& value)
+void BlockQueue::enqueue(const key_type& key, const value_type& value)
 {
 	std::unique_lock<std::mutex> block_lock(block_mtx);
 	block_map.emplace(key, value);
 
-	if (block_map.size() == MAX_BLOCK_SIZE)
+	if (block_map.size() == block_size)
 	{
 		flush(std::move(block_lock));
 	}

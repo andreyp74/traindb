@@ -12,13 +12,14 @@
 class BlockQueue
 {
 public:
-	BlockQueue(std::weak_ptr<FileStorage> file_storage);
+	BlockQueue(std::weak_ptr<FileStorage> file_storage, size_t block_size=1024);
 	~BlockQueue();
 
+	void start();
 	void stop();
 
-	bool lookup(key_type key, std::vector<value_type>& result) const;
-	void enqueue(key_type& key, value_type& value);
+	bool lookup(const key_type& key, std::vector<value_type>& result) const;
+	void enqueue(const key_type& key, const value_type& value);
 
 private:
 
@@ -32,8 +33,6 @@ private:
 	static bool lookup(const data_map_type& m, key_type key, std::vector<value_type>& result);
 
 private:
-	size_t MAX_BLOCK_SIZE = 1024;
-
 	std::weak_ptr<FileStorage> file_storage;
 
 	mutable std::mutex block_mtx;
@@ -45,6 +44,8 @@ private:
 
 	std::thread persist_thread;
 	std::atomic<bool> done;
+
+	const size_t block_size;
 };
 
 #endif //BLOCK_QUEUE_HPP_

@@ -18,6 +18,7 @@ public:
 	{
 		file_storage = std::make_shared<FileStorage>("./.local/");
 		block_queue = std::make_unique<BlockQueue>(file_storage);
+		block_queue->start();
 	}
 
 	~Storage()
@@ -25,16 +26,16 @@ public:
 		block_queue->stop();
 	}
 
-	bool commit(key_type key, int version);
-	int put_data(key_type key, value_type&& value);
+	bool commit(const key_type& key, int version);
+	int put_data(const key_type& key, value_type&& value);
 
-	std::vector<value_type> get_data(key_type key) const;
+	std::vector<value_type> get_data(const key_type& key) const;
 
 private:
 	Storage(Storage&) = delete;
 	Storage& operator=(Storage&) = delete;
 
-	bool lookup(key_type key, std::vector<value_type>& result) const;
+	bool lookup(const key_type& key, std::vector<value_type>& result) const;
 	
 private:
 

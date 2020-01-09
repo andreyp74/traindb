@@ -17,7 +17,7 @@ void FileStorage::put_data(data_map_type&& data)
 	store_index(key, file_name);
 }
 
-void FileStorage::get_data(key_type key, std::vector<value_type>& result) const
+void FileStorage::get_data(const key_type& key, std::vector<value_type>& result) const
 {
 	auto files = read_index(key);
 	for (auto& file_name : files)
@@ -31,13 +31,13 @@ void FileStorage::get_data(key_type key, std::vector<value_type>& result) const
 	}
 }
 
-void FileStorage::store_index(key_type key, const std::string& file_name)
+void FileStorage::store_index(const key_type& key, const std::string& file_name)
 {
 	std::unique_lock<std::mutex> lock(index_mtx);
 	index.emplace(key, file_name);
 }
 
-std::vector<std::string> FileStorage::read_index(key_type key) const
+std::vector<std::string> FileStorage::read_index(const key_type& key) const
 {
 	std::vector<std::string> files;
 
