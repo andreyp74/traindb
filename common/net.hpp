@@ -10,14 +10,14 @@ namespace net
     using namespace Poco;
     using namespace Poco::Net;
 
-    void send(StreamSocket& socket, const std::string& request)
+    inline void send(StreamSocket& socket, const std::string& request)
     {
         size_t size = request.size();
         socket.sendBytes(&size, (int)sizeof(size_t));
         socket.sendBytes(request.data(), (int)size);
     }
 
-    std::string receive(StreamSocket& socket)
+    inline std::string receive(StreamSocket& socket)
     {
         unsigned char buffer[sizeof(size_t)];
         socket.receiveBytes(buffer, (int)sizeof(buffer));

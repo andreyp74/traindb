@@ -30,7 +30,7 @@ namespace net
         {
             try {
                 socket.connect(socket_addr); 
-                std::cout << "Connected to " << socket_addr.host << ":" << socket_addr.port << std::endl;
+                //std::cout << "Connected to " << socket_addr.host << ":" << socket_addr.port << std::endl;
                 return true;
             }
             catch(Poco::Exception err) {

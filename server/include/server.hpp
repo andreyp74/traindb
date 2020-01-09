@@ -5,129 +5,28 @@
 #include <memory>
 #include <assert.h>
 #include <iostream>
-#include <iterator> 
+#include <iterator>
 #include <algorithm>
 
 #include "Poco/Net/TCPServer.h"
-#include "Poco/Net/TCPServerConnection.h"
-#include "Poco/Net/TCPServerConnectionFactory.h"
-#include "Poco/Net/StreamSocket.h"
+#include "Poco/Util/ServerApplication.h"
 #include "Poco/Net/SocketStream.h"
 #include "Poco/Net/ServerSocket.h"
 #include "Poco/Exception.h"
-#include "Poco/Util/ServerApplication.h"
 #include "Poco/Util/Option.h"
 #include "Poco/Util/OptionSet.h"
 #include "Poco/Util/HelpFormatter.h"
-#include "Poco/JSON/Parser.h"
 
 #include "storage.hpp"
-#include "net.hpp"
+#include "read_server.hpp"
+#include "write_server.hpp"
+#include "client.hpp"
+
 
 using namespace Poco;
 using namespace Poco::Net;
 using namespace Poco::Util;
 
-class ServerConnection: public TCPServerConnection
-	/// This class handles all client connections.
-{
-public:
-	ServerConnection(const StreamSocket& s, 
-		             std::shared_ptr<Storage> storage) : 
-		TCPServerConnection(s),
-		storage(storage)
-	{}
-
-	void run() override
-	{
-		Application& app = Application::instance();
-		app.logger().information("Connection from " + this->socket().peerAddress().toString());
-
-		while(true)
-		{
-			try
-			{	
-				app.logger().information("Waiting for request...");
-				std::string json = receive();
-				app.logger().information("Received request: " + json);
-
-				Poco::JSON::Parser parser;
-				Poco::Dynamic::Var result = parser.parse(json);
-				Poco::JSON::Object::Ptr object = result.extract<Poco::JSON::Object::Ptr>();
-				std::string request = object->getValue<std::string>("request");
-
-				std::string response_json;
-				if (request == "get")
-				{
-					std::string key = object->getValue<std::string>("key");
-
-					std::vector<std::string> resp = storage->get_data(key);
-					std::string values;
-					for (auto& value : resp)
-					{
-						if (!values.empty())
-							values += ",";
-						values += "\"";
-						values += value;
-						values += "\"";
-					}
-					response_json = "{ \"result\" : \"ok\", \"values\" : [" + values + "] }";
-				}
-				else if (request == "set")
-				{
-					std::string key = object->getValue<std::string>("key");
-					std::string value = object->getValue<std::string>("value");
-
-					storage->put_data(key, std::move(value));
-					response_json = "{ \"result\" : \"ok\" }";
-				}
-			
-				send(response_json);
-
-				app.logger().information("Sent " + response_json);
-			}
-			catch (Poco::Exception& exc)
-			{
-				std::string msg = "{ \"result\" : \"error\", \"message\" : \"" + exc.displayText() + "\"}";
-				send(msg);
-
-				app.logger().log(exc);
-			}
-		}
-
-		app.logger().information("Connection is closing");
-	}
-
-private:
-	std::string receive()
-	{
-		return net::receive(this->socket());
-	}
-
-	void send(const std::string& msg)
-	{
-		net::send(this->socket(), msg);
-	}
-
-private:
-	std::shared_ptr<Storage> storage;
-};
-
-class ServerConnectionFactory: public TCPServerConnectionFactory
-{
-public:
-	ServerConnectionFactory(std::shared_ptr<Storage> storage) : 
-		storage(storage)
-	{}
-
-	TCPServerConnection* createConnection(const StreamSocket& socket) override
-	{
-		return new ServerConnection(socket, storage);
-	}
-
-private:
-	std::shared_ptr<Storage> storage;
-};
 
 class Server: public ServerApplication
 {
@@ -136,27 +35,36 @@ protected:
 	int main(const std::vector<std::string>&)
 	{
 		std::shared_ptr<Storage> storage = std::make_shared<Storage>();
-	
-		// get parameters from configuration file
-		unsigned short port = (unsigned short)config().getInt("Server.port", 9192);
 
-		// set-up a server socket
-		ServerSocket svs(port);
-		//svs.setBlocking(false);
+		unsigned short read_port = (unsigned short)config().getInt("ReadServer.port", 9192);
+		unsigned short write_port = (unsigned short)config().getInt("WriteServer.port", 9193);
 
-		// set-up a TCPServer instance
-		TCPServer srv(new ServerConnectionFactory(storage), svs);
-		// start the TCPServer
-		srv.start();
+		ServerSocket read_socket(read_port);
+		TCPServer read_server(new ReadServerFactory(storage), read_socket);
+		read_server.start();
+		std::cout << "ReadServer started on port: " << read_port << std::endl;
 
-		std::cout << "Server started on port: " << port << std::endl;
+		ServerSocket write_socket(write_port);
+		TCPServer write_server(new WriteServerFactory(storage), write_socket);
+		write_server.start();
+		std::cout << "WriteServer started on port: " << write_port << std::endl;
+
+		unsigned short succ_port = (unsigned short)config().getInt("Succ.port", write_port);
+		std::string succ_host = config().getString("Succ.host", "localhost");
+
+		if (succ_port && !succ_host.empty())
+		{
+			net::Client succ_client(succ_host, succ_port);
+			succ_client.connect();
+			std::cout << "Connected to successor: " << succ_host << ":" << succ_port << std::endl;
+		}
 
 		// wait for CTRL-C or kill
 		waitForTerminationRequest();
 
-		// Stop the TCPServer
-		srv.stop();
-		
+		read_server.stop();
+		write_server.stop();
+
 		return Application::EXIT_OK;
 	}
 };
