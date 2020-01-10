@@ -39,6 +39,9 @@ protected:
 		unsigned short read_port = (unsigned short)config().getInt("ReadServer.port", 9192);
 		unsigned short write_port = (unsigned short)config().getInt("WriteServer.port", 9193);
 
+		unsigned short succ_port = (unsigned short)config().getInt("Succ.port", 9194);
+		std::string succ_host = config().getString("Succ.host", "localhost");
+
 		ServerSocket read_socket(read_port);
 		TCPServer read_server(new ReadServerFactory(storage), read_socket);
 		read_server.start();
@@ -48,9 +51,6 @@ protected:
 		TCPServer write_server(new WriteServerFactory(storage), write_socket);
 		write_server.start();
 		std::cout << "WriteServer started on port: " << write_port << std::endl;
-
-		unsigned short succ_port = (unsigned short)config().getInt("Succ.port", write_port);
-		std::string succ_host = config().getString("Succ.host", "localhost");
 
 		if (succ_port && !succ_host.empty())
 		{
