@@ -1,3 +1,6 @@
+
+#include <chrono>
+
 #include "write_server.hpp"
 
 #include "Poco/Util/ServerApplication.h"
@@ -23,7 +26,7 @@ void WriteServer::run()
             JSON::Parser parser;
             Dynamic::Var result = parser.parse(json);
             JSON::Object::Ptr object = result.extract<JSON::Object::Ptr>();
-            std::string request = object->getValue<std::string>("request");
+            std::string request = object->getValue<std::string>("pack");
 
             std::string response_json;
             if (request == "set")
@@ -31,8 +34,23 @@ void WriteServer::run()
                 std::string key = object->getValue<std::string>("key");
                 std::string value = object->getValue<std::string>("value");
 
-                storage->put_data(key, std::move(value));
-                response_json = "{ \"result\" : \"ok\" }";
+				ver_type version;
+				if (!object->isNull("version"))
+					version = object->getValue<ver_type>("version");
+				else 
+					version = std::chrono::system_clock::now().time_since_epoch().count();
+
+				storage->put_data(key, value, version);
+
+				if (succ_client)
+				{
+					succ_client->enqueue(key, value, version);
+				}
+				else
+				{
+					storage->commit(key, version);
+					response_json = "{ \"pack\" : \"ack\", \"key\": \"" + key + "\", \"value\": \"" + value + "\", \"version\": \"" + std::to_string(version) + "\"}";
+				}
             }
             else
             {

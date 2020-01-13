@@ -26,8 +26,8 @@ public:
 		block_queue->stop();
 	}
 
-	bool commit(const key_type& key, int version);
-	int put_data(const key_type& key, value_type&& value);
+	bool commit(const key_type& key, ver_type version);
+	void put_data(const key_type& key, const value_type& value, ver_type version);
 
 	std::vector<value_type> get_data(const key_type& key) const;
 

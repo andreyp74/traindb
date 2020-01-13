@@ -1,6 +1,6 @@
 #include "storage.hpp"
 
-bool Storage::commit(const key_type& key, int version)
+bool Storage::commit(const key_type& key, ver_type version)
 {
 	bool is_committed;
 	value_type value;
@@ -11,7 +11,7 @@ bool Storage::commit(const key_type& key, int version)
 		if (it == data.end())
 			return false;
 
-		is_committed = it->second.commit(version, value);
+		is_committed = it->second.commit(value, version);
 	}
 	if (is_committed)
 		block_queue->enqueue(key, value);
@@ -19,12 +19,12 @@ bool Storage::commit(const key_type& key, int version)
 	return is_committed;
 }
 
-int Storage::put_data(const key_type& key, value_type&& value)
+void Storage::put_data(const key_type& key, const value_type& value, ver_type version)
 {
 	std::unique_lock<std::mutex> lock(data_mtx);
 
 	VersionList& ls = data[key];
-	return ls.add_version(std::move(value));
+	ls.add_version(value, version);
 }
 
 std::vector<value_type> Storage::get_data(const key_type& key) const

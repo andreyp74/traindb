@@ -29,14 +29,14 @@ int main()
 				if (size < 2)
 					throw std::runtime_error("Incorrect get request");
 
-				request_json = "{ \"request\" : \"get\", \"key\" : \"" + request[1] + "\" }";
+				request_json = "{ \"pack\" : \"get\", \"key\" : \"" + request[1] + "\" }";
 			}
 			else if (request[0] == "set")
 			{
 				if (size < 3)
 					throw std::runtime_error("Incorrect set request");
 
-				request_json = "{ \"request\" : \"set\", \"key\" : \"" + request[1] + "\", \"value\" : \"" + request[2] + "\" }";
+				request_json = "{ \"pack\" : \"set\", \"key\" : \"" + request[1] + "\", \"value\" : \"" + request[2] + "\" }";
 			}
 			
 			net::send(client.get_socket(), request_json);

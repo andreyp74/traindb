@@ -39,6 +39,11 @@ namespace net
             return false;
         }
 
+		StreamSocket& get_socket()
+		{
+			return socket;
+		}
+
         void send(const std::string& request)
         {
             net::send(this->socket, request);

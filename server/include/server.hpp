@@ -20,7 +20,7 @@
 #include "storage.hpp"
 #include "read_server.hpp"
 #include "write_server.hpp"
-#include "client.hpp"
+#include "succ_client.hpp"
 
 
 using namespace Poco;
@@ -34,30 +34,31 @@ protected:
 
 	int main(const std::vector<std::string>&)
 	{
-		std::shared_ptr<Storage> storage = std::make_shared<Storage>();
-
 		unsigned short read_port = (unsigned short)config().getInt("ReadServer.port", 9192);
 		unsigned short write_port = (unsigned short)config().getInt("WriteServer.port", 9193);
-
 		unsigned short succ_port = (unsigned short)config().getInt("Succ.port", 9194);
 		std::string succ_host = config().getString("Succ.host", "localhost");
+
+		std::shared_ptr<Storage> storage = std::make_shared<Storage>();
 
 		ServerSocket read_socket(read_port);
 		TCPServer read_server(new ReadServerFactory(storage), read_socket);
 		read_server.start();
 		std::cout << "ReadServer started on port: " << read_port << std::endl;
 
+		std::shared_ptr<SuccClient> succ_client;
+		if (succ_port && !succ_host.empty())
+		{
+			succ_client = std::make_shared<SuccClient>(succ_host, succ_port);
+			succ_client->start();
+			std::cout << "Connected to successor: " << succ_host << ":" << succ_port << std::endl;
+		}
+
 		ServerSocket write_socket(write_port);
-		TCPServer write_server(new WriteServerFactory(storage), write_socket);
+		TCPServer write_server(new WriteServerFactory(storage, succ_client), write_socket);
 		write_server.start();
 		std::cout << "WriteServer started on port: " << write_port << std::endl;
 
-		if (succ_port && !succ_host.empty())
-		{
-			net::Client succ_client(succ_host, succ_port);
-			succ_client.connect();
-			std::cout << "Connected to successor: " << succ_host << ":" << succ_port << std::endl;
-		}
 
 		// wait for CTRL-C or kill
 		waitForTerminationRequest();

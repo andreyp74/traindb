@@ -8,14 +8,14 @@
 
 struct StoredValue
 {
-	StoredValue(int version, bool clear, value_type value) :
+	StoredValue(ver_type version, bool clear, value_type value) :
 		version(version),
 		clear(clear),
 		value(value)
 	{
 	}
 
-	int version;
+	ver_type version;
 	bool clear;
 	value_type value;
 };
@@ -23,7 +23,7 @@ struct StoredValue
 class VersionList
 {
 public:
-	bool commit(int version, value_type& value)
+	bool commit(value_type& value, ver_type version)
 	{
 		auto it = std::find_if(ver_list.begin(), ver_list.end(), [&](StoredValue& v) { return v.version == version; });
 		if (it == ver_list.end())
@@ -35,11 +35,9 @@ public:
 		return true;
 	}
 
-	int add_version(value_type&& value)
+	void add_version(const value_type& value, ver_type version)
 	{
-		int version = ver_list.empty() ? 0 : ver_list.back().version + 1;
 		ver_list.emplace_back(version, false, value);
-		return version;
 	}
 
 	bool get_last(value_type& value) const

@@ -23,7 +23,7 @@ void ReadServer::run()
             JSON::Parser parser;
             Dynamic::Var result = parser.parse(json);
             JSON::Object::Ptr object = result.extract<JSON::Object::Ptr>();
-            std::string request = object->getValue<std::string>("request");
+            std::string request = object->getValue<std::string>("pack");
 
             std::string response_json;
             if (request == "get")
@@ -40,7 +40,7 @@ void ReadServer::run()
                     values += value;
                     values += "\"";
                 }
-                response_json = "{ \"result\" : \"ok\", \"values\" : [" + values + "] }";
+                response_json = "{ \"pack\" : \"result\", \"values\" : [" + values + "] }";
             }
             else
             {
@@ -53,7 +53,7 @@ void ReadServer::run()
         }
         catch (Poco::Exception& exc)
         {
-            std::string msg = "{ \"result\" : \"error\", \"message\" : \"" + exc.displayText() + "\"}";
+            std::string msg = "{ \"pack\" : \"deny\", \"message\" : \"" + exc.displayText() + "\"}";
             send(msg);
 
             app.logger().log(exc);
