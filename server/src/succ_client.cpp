@@ -1,8 +1,12 @@
+#include "Poco/JSON/Parser.h"
+
 #include "succ_client.hpp"
 
+using namespace Poco;
 
-SuccClient::SuccClient(const std::string& host, Poco::UInt16 port) :
+SuccClient::SuccClient(const std::string& host, Poco::UInt16 port, std::shared_ptr<Storage> storage) :
 	client(host, port),
+	storage(storage),
 	done(false)
 {
 }
@@ -22,15 +26,13 @@ void SuccClient::stop()
 		client_thread.join();
 }
 
-std::future<SuccClient::queue_item_type> SuccClient::enqueue(const std::string& key, const std::string& value, ver_type version)
+void SuccClient::enqueue(SuccClient::QueueItem&& item)
 {
-	std::promise<queue_item_type> item({ key, value });
 	{
 		std::unique_lock<std::mutex> lock(queue_mtx);
 		queue.push_back(std::move(item));
 	}
 	queue_ready.notify_one();
-	return item.get_future();
 }
 
 void SuccClient::run()
@@ -42,13 +44,34 @@ void SuccClient::run()
 
 		while (!queue.empty())
 		{
-			queue_item_type item = std::move(queue.front());
+			QueueItem item = std::move(queue.front());
 			queue.pop_front();
 
 			lock.unlock();
 
-			std::string request = "{ \"pack\" : \"set\", \"key\" : \"" + request[1] + "\", \"value\" : \"" + request[2] + "\" }";
-			client.send();
+			//--> TODO: move to some common protocol part
+			std::string request = "{ \"pack\" : \"set\", \"key\" : \"" + item.key + "\", \"value\" : \"" + item.value + "\", \"version\":\"" + std::to_string(item.version) + "\" }";
+
+			client.send(request);
+			std::string response = client.receive();
+
+			JSON::Parser parser;
+			Dynamic::Var result = parser.parse(response);
+			JSON::Object::Ptr object = result.extract<JSON::Object::Ptr>();
+			std::string pack = object->getValue<std::string>("pack");
+
+			std::string response_json;
+			if (pack == "ack")
+			{
+				std::string key = object->getValue<std::string>("key");
+				//std::string value = object->getValue<std::string>("value");
+				ver_type version = object->getValue<ver_type>("version");
+
+				//TODO: I am not glad with that solution
+				if (!storage.expired())
+					storage.lock()->commit(key, version);
+			}
+			//<--
 
 			lock.lock();
 		}

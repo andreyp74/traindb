@@ -11,19 +11,25 @@
 #include "Poco/Types.h"
 
 #include "storage_types.hpp"
+#include "storage.hpp"
 #include "client.hpp"
 
 class SuccClient
 {
 public:
 
-	using queue_item_type = std::pair<std::string, std::string>;
+	struct QueueItem
+	{
+		std::string key;
+		std::string value;
+		ver_type version;
+	};
 
-	SuccClient(const std::string& host, Poco::UInt16 port);
+	SuccClient(const std::string& host, Poco::UInt16 port, std::shared_ptr<Storage> storage);
 
 	void start();
 	void stop();
-	std::future<queue_item_type> enqueue(const std::string& key, const std::string& value, ver_type version);
+	void enqueue(SuccClient::QueueItem&& item);
 
 private:
     void run();
@@ -35,8 +41,10 @@ private:
 
 	std::atomic<bool> done;
 	std::mutex queue_mtx;
-	std::deque<queue_item_type> queue;
+	std::deque<QueueItem> queue;
 	std::condition_variable queue_ready;
+
+	std::weak_ptr<Storage> storage;
 
 };
 

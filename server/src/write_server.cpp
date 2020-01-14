@@ -44,7 +44,7 @@ void WriteServer::run()
 
 				if (succ_client)
 				{
-					succ_client->enqueue(key, value, version);
+					succ_client->enqueue({ key, value, version });
 				}
 				else
 				{
