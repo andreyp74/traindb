@@ -1,5 +1,7 @@
 
 #include <chrono>
+#include <sstream>
+#include <functional>
 
 #include "Poco/Util/ServerApplication.h"
 
@@ -10,6 +12,19 @@ using namespace Poco;
 using namespace Poco::Net;
 using namespace Poco::Util;
 using namespace proto;
+
+using namespace std::placeholders;
+
+WriteServer::WriteServer(const Poco::Net::StreamSocket& s,
+						 std::shared_ptr<Storage> storage,
+						 std::shared_ptr<SuccClient> succ_client) :
+	Poco::Net::TCPServerConnection(s),
+	storage(storage),
+	succ_client(succ_client)
+{
+	std::function<void(const Packet&)> call_back = std::bind(&WriteServer::on_succ_receive, this, _1);
+	succ_client->register_callback(call_back);
+}
 
 Packet WriteServer::receive()
 {
@@ -25,14 +40,19 @@ void WriteServer::send(const Packet& packet)
     Application::instance().logger().information("Sent: " + msg);
 }
 
-void WriteServer::on_recv(const std::string& msg)
+void WriteServer::on_succ_receive(const Packet& packet)
 {
-	Application::instance().logger().information("Received: " + msg);
+	auto& app = Application::instance();
 
-	Packet packet = deserialize(msg);
+	std::stringstream ss;
+	ss << "key: " << packet.entry.key << "value: " << packet.entry.value << "version: " << packet.entry.version;
+	app.logger().information("Received: " + ss.str());
 
 	if (packet.packet_type == PacketType::Ack)
-		storage->commit(packet.entry.key, packet.entry.version);
+	{
+		commit_version(packet);
+		app.logger().information("Committed: " + ss.str());
+	}
 }
 
 void WriteServer::commit_version(const Packet& packet)
@@ -52,7 +72,7 @@ void WriteServer::run()
         try
         {
             app.logger().information("Waiting for request...");
-            Packet packet = receive();
+			Packet packet = receive();
             if (packet.packet_type == PacketType::Set)
             {
                 if (packet.entry.version == -1)
@@ -68,10 +88,6 @@ void WriteServer::run()
                 {
 					commit_version(packet);
                 }
-            }
-            else if (packet.packet_type == PacketType::Ack)
-            {
-                storage->commit(packet.entry.key, packet.entry.version);
             }
             else
             {

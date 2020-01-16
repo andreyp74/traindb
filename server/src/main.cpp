@@ -46,7 +46,7 @@ protected:
 		std::shared_ptr<SuccClient> succ_client;
 		if (succ_port && !succ_host.empty())
 		{
-			succ_client = std::make_shared<SuccClient>(succ_host, succ_port, storage);
+			succ_client = std::make_shared<SuccClient>(succ_host, succ_port);
 			succ_client->start();
 			std::cout << "Connected to successor: " << succ_host << ":" << succ_port << std::endl;
 		}

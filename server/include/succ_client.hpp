@@ -6,7 +6,7 @@
 #include <thread>
 #include <deque>
 #include <condition_variable>
-#include <future>
+#include <functional>
 
 #include "Poco/Types.h"
 
@@ -19,27 +19,32 @@ class SuccClient
 {
 public:
 
-	SuccClient(const std::string& host, Poco::UInt16 port, std::shared_ptr<Storage> storage);
+	SuccClient(const std::string& host, Poco::UInt16 port);
 
 	void start();
 	void stop();
 	void enqueue(Entry&& item);
 
+	void register_callback(std::function<void(const proto::Packet&)>& call_back);
+
 private:
-    void run();
+    void send_run();
+	void recv_run();
 
 private:
 	net::Client client;
 
-	std::thread client_thread;
+	std::thread send_thread;
+	std::thread recv_thread;
 
-	std::atomic<bool> done;
+	std::atomic<bool> send_done;
+	std::atomic<bool> recv_done;
+
 	std::mutex queue_mtx;
 	std::deque<Entry> queue;
 	std::condition_variable queue_ready;
 
-	std::weak_ptr<Storage> storage;
-
+	std::vector<std::function<void(const proto::Packet&)>> call_backs;
 };
 
 #endif //SUCC_CLIENT_HPP_

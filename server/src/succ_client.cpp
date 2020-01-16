@@ -6,26 +6,32 @@
 using namespace Poco;
 using namespace proto;
 
-SuccClient::SuccClient(const std::string& host, Poco::UInt16 port, std::shared_ptr<Storage> storage) :
+SuccClient::SuccClient(const std::string& host, Poco::UInt16 port) :
 	client(host, port),
-	storage(storage),
-	done(false)
+	send_done(false),
+	recv_done(false)
 {
 }
 
 void SuccClient::start()
 {
 	client.connect();
-	client_thread = std::thread(&SuccClient::run, this);
+
+	send_thread = std::thread(&SuccClient::send_run, this);
+	recv_thread = std::thread(&SuccClient::recv_run, this);
 }
 
 void SuccClient::stop()
 {
 	queue_ready.notify_one();
 
-	done = true;
-	if (client_thread.joinable())
-		client_thread.join();
+	send_done = true;
+	if (send_thread.joinable())
+		send_thread.join();
+
+	recv_done = true;
+	if (recv_thread.joinable())
+		recv_thread.join();
 }
 
 void SuccClient::enqueue(Entry&& item)
@@ -37,12 +43,12 @@ void SuccClient::enqueue(Entry&& item)
 	queue_ready.notify_one();
 }
 
-void SuccClient::run()
+void SuccClient::send_run()
 {
-	while (!done)
+	while (!send_done)
 	{
 		std::unique_lock<std::mutex> lock(queue_mtx);
-		queue_ready.wait(lock, [this]() { return done || !queue.empty(); });
+		queue_ready.wait(lock, [this]() { return send_done || !queue.empty(); });
 
 		while (!queue.empty())
 		{
@@ -52,29 +58,32 @@ void SuccClient::run()
 			lock.unlock();
 
 			Packet packet(PacketType::Ack, entry);
-			client.send(packet);
-
-			// std::string response = client.receive();
-
-			// JSON::Parser parser;
-			// Dynamic::Var result = parser.parse(response);
-			// JSON::Object::Ptr object = result.extract<JSON::Object::Ptr>();
-			// std::string pack = object->getValue<std::string>("pack");
-
-			// std::string response_json;
-			// if (pack == "ack")
-			// {
-			// 	std::string key = object->getValue<std::string>("key");
-			// 	//std::string value = object->getValue<std::string>("value");
-			// 	ver_type version = object->getValue<ver_type>("version");
-
-			// 	//TODO: I am not glad with that solution
-			// 	if (!storage.expired())
-			// 		storage.lock()->commit(key, version);
-			// }
-			//<--
+			Poco::Timespan timeout(10, 0);
+			if (client.get_socket().poll(timeout, Poco::Net::Socket::SELECT_WRITE))
+				client.send(packet);
 
 			lock.lock();
+		}
+	}
+}
+
+void SuccClient::register_callback(std::function<void(const proto::Packet&)>& call_back)
+{
+	call_backs.push_back(call_back);
+}
+
+void SuccClient::recv_run()
+{
+	while (!recv_done)
+	{
+		Poco::Timespan timeout(10, 0);
+		if (client.get_socket().poll(timeout, Poco::Net::Socket::SELECT_READ))
+		{
+			Packet packet = client.receive();
+			for (auto& call_back : call_backs)
+			{
+				call_back(packet);
+			}
 		}
 	}
 }

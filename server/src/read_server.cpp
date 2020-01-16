@@ -36,10 +36,13 @@ void ReadServer::run()
             Packet packet = receive();
             if (packet.packet_type == PacketType::Get)
             {
-                value_type value = storage->get_data(packet.entry.key);
-                //TODO return from storage and send result with version number
-                Packet response(PacketType::Result, Entry{packet.entry.key, value, -1});
-                send(response);
+				value_type value;
+				if (storage->get_data(packet.entry.key, value))
+				{
+					//TODO: return from storage and send result with version number ?
+					Packet response(PacketType::Result, Entry{ packet.entry.key, value, -1 });
+					send(response);
+				}
             }
             else
             {

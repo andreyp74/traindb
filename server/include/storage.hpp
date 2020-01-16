@@ -29,7 +29,7 @@ public:
 	bool commit(const key_type& key, ver_type version);
 	void put_data(const key_type& key, const value_type& value, ver_type version);
 
-	value_type get_data(const key_type& key) const;
+	bool get_data(const key_type& key, value_type& value) const;
 
 private:
 	Storage(Storage&) = delete;

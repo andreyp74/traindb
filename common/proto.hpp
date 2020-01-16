@@ -65,8 +65,7 @@ namespace proto
         else if (packet.packet_type == PacketType::Result)
         {
             json = "{ \"pack\" : \"result\", \"key\": \"" + packet.entry.key + 
-                "\", \"value\": \"" + packet.entry.value + 
-                "\", \"version\": \"" + std::to_string(packet.entry.version) + "\"}";
+                "\", \"value\": \"" + packet.entry.value + "\"}";
         }
         else
         {

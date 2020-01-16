@@ -14,13 +14,9 @@
 class WriteServer: public Poco::Net::TCPServerConnection
 {
 public:
-	WriteServer(const Poco::Net::StreamSocket& s, 
-				std::shared_ptr<Storage> storage, 
-				std::shared_ptr<SuccClient> succ_client) :
-		Poco::Net::TCPServerConnection(s),
-		storage(storage),
-		succ_client(succ_client)
-	{}
+	WriteServer(const Poco::Net::StreamSocket& s,
+		std::shared_ptr<Storage> storage,
+		std::shared_ptr<SuccClient> succ_client);
 
 	virtual ~WriteServer() {}
 
@@ -32,7 +28,8 @@ private:
 
 	proto::Packet receive();
 	void send(const proto::Packet& packet);
-	void on_recv(const std::string& msg);
+
+	void on_succ_receive(const proto::Packet& packet);
 
 private:
 	std::shared_ptr<Storage> storage;
