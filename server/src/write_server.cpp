@@ -1,14 +1,46 @@
 
 #include <chrono>
 
-#include "write_server.hpp"
-
 #include "Poco/Util/ServerApplication.h"
-#include "Poco/JSON/Parser.h"
+
+#include "proto.hpp"
+#include "write_server.hpp"
 
 using namespace Poco;
 using namespace Poco::Net;
 using namespace Poco::Util;
+using namespace proto;
+
+Packet WriteServer::receive()
+{
+	std::string msg = net::receive(this->socket());
+    Application::instance().logger().information("Received request: " + msg);
+    return deserialize(msg);
+}
+
+void WriteServer::send(const Packet& packet)
+{
+    auto msg = serialize(packet);
+	net::send(this->socket(), msg);
+    Application::instance().logger().information("Sent: " + msg);
+}
+
+void WriteServer::on_recv(const std::string& msg)
+{
+	Application::instance().logger().information("Received: " + msg);
+
+	Packet packet = deserialize(msg);
+
+	if (packet.packet_type == PacketType::Ack)
+		storage->commit(packet.entry.key, packet.entry.version);
+}
+
+void WriteServer::commit_version(const Packet& packet)
+{
+	storage->commit(packet.entry.key, packet.entry.version);
+	Packet ack(PacketType::Ack, packet.entry);
+	send(ack);
+}
 
 void WriteServer::run()
 {
@@ -20,53 +52,36 @@ void WriteServer::run()
         try
         {
             app.logger().information("Waiting for request...");
-            std::string json = receive();
-            app.logger().information("Received request: " + json);
-
-            JSON::Parser parser;
-            Dynamic::Var result = parser.parse(json);
-            JSON::Object::Ptr object = result.extract<JSON::Object::Ptr>();
-            std::string request = object->getValue<std::string>("pack");
-
-            std::string response_json;
-            if (request == "set")
+            Packet packet = receive();
+            if (packet.packet_type == PacketType::Set)
             {
-                std::string key = object->getValue<std::string>("key");
-                std::string value = object->getValue<std::string>("value");
+                if (packet.entry.version == -1)
+                    packet.entry.version = std::chrono::system_clock::now().time_since_epoch().count();
 
-				ver_type version;
-				if (!object->isNull("version"))
-					version = object->getValue<ver_type>("version");
-				else 
-					version = std::chrono::system_clock::now().time_since_epoch().count();
+                storage->put_data(packet.entry.key, packet.entry.value, packet.entry.version);
 
-				storage->put_data(key, value, version);
-
-				if (succ_client)
-				{
-					succ_client->enqueue({ key, value, version });
-				}
-				else
-				{
-					storage->commit(key, version);
-					response_json = "{ \"pack\" : \"ack\", \"key\": \"" + key + "\", \"value\": \"" + value + "\", \"version\": \"" + std::to_string(version) + "\"}";
-				}
+                if (succ_client)
+                {
+                    succ_client->enqueue({ packet.entry.key, packet.entry.value, packet.entry.version });
+                }
+                else
+                {
+					commit_version(packet);
+                }
+            }
+            else if (packet.packet_type == PacketType::Ack)
+            {
+                storage->commit(packet.entry.key, packet.entry.version);
             }
             else
             {
                 throw std::runtime_error("Unsupported request");
             }
-
-            send(response_json);
-
-            app.logger().information("Sent " + response_json);
         }
         catch (Poco::Exception& exc)
         {
-            std::string msg = "{ \"result\" : \"error\", \"message\" : \"" + exc.displayText() + "\"}";
-            send(msg);
-
-            app.logger().log(exc);
+            //TODO send deny
+            app.logger().error(exc.displayText());
         }
     }
 

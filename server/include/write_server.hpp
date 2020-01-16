@@ -4,23 +4,38 @@
 #include <string>
 
 #include "Poco/Net/TCPServerConnectionFactory.h"
+#include "Poco/Net/TCPServerConnection.h"
+#include "Poco/Net/StreamSocket.h"
 
-#include "server_connection.hpp"
+#include "storage.hpp"
+#include "net.hpp"
 #include "succ_client.hpp"
 
-class WriteServer: public ServerConnection
+class WriteServer: public Poco::Net::TCPServerConnection
 {
 public:
 	WriteServer(const Poco::Net::StreamSocket& s, 
 				std::shared_ptr<Storage> storage, 
 				std::shared_ptr<SuccClient> succ_client) :
-		ServerConnection(s, storage), 
+		Poco::Net::TCPServerConnection(s),
+		storage(storage),
 		succ_client(succ_client)
 	{}
+
+	virtual ~WriteServer() {}
 
 	void run() override;
 
 private:
+
+	void commit_version(const proto::Packet& packet);
+
+	proto::Packet receive();
+	void send(const proto::Packet& packet);
+	void on_recv(const std::string& msg);
+
+private:
+	std::shared_ptr<Storage> storage;
 	std::shared_ptr<SuccClient> succ_client;
 };
 

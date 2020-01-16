@@ -12,6 +12,7 @@
 #include "Poco/StreamCopier.h"
 
 #include "net.hpp"
+#include "proto.hpp"
 
 namespace net
 {
@@ -44,14 +45,16 @@ namespace net
 			return socket;
 		}
 
-        void send(const std::string& request)
+        proto::Packet receive()
         {
-            net::send(this->socket, request);
+            std::string msg = net::receive(this->socket);
+            return proto::deserialize(msg);
         }
 
-        std::string receive()
+        void send(const proto::Packet& packet)
         {
-            return net::receive(this->socket);
+            auto msg = proto::serialize(packet);
+            net::send(this->socket, msg);
         }
 
     private:

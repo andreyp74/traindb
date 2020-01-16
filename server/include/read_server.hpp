@@ -4,17 +4,32 @@
 #include <string>
 
 #include "Poco/Net/TCPServerConnectionFactory.h"
+#include "Poco/Net/TCPServerConnection.h"
+#include "Poco/Net/StreamSocket.h"
 
-#include "server_connection.hpp"
+#include "storage.hpp"
+#include "net.hpp"
+#include "succ_client.hpp"
 
-class ReadServer: public ServerConnection
+class ReadServer: public Poco::Net::TCPServerConnection
 {
 public:
 	ReadServer(const Poco::Net::StreamSocket& s, std::shared_ptr<Storage> storage) :
-		ServerConnection(s, storage)
+		Poco::Net::TCPServerConnection(s), 
+		storage(storage)
 	{}
 
+	virtual ~ReadServer() {}
+
 	void run() override;
+
+private:
+
+	proto::Packet receive();
+	void send(const proto::Packet& packet);
+
+private:
+	std::shared_ptr<Storage> storage;
 };
 
 class ReadServerFactory: public Poco::Net::TCPServerConnectionFactory

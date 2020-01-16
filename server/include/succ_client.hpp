@@ -13,23 +13,17 @@
 #include "storage_types.hpp"
 #include "storage.hpp"
 #include "client.hpp"
+#include "entry.hpp"
 
 class SuccClient
 {
 public:
 
-	struct QueueItem
-	{
-		std::string key;
-		std::string value;
-		ver_type version;
-	};
-
 	SuccClient(const std::string& host, Poco::UInt16 port, std::shared_ptr<Storage> storage);
 
 	void start();
 	void stop();
-	void enqueue(SuccClient::QueueItem&& item);
+	void enqueue(Entry&& item);
 
 private:
     void run();
@@ -41,7 +35,7 @@ private:
 
 	std::atomic<bool> done;
 	std::mutex queue_mtx;
-	std::deque<QueueItem> queue;
+	std::deque<Entry> queue;
 	std::condition_variable queue_ready;
 
 	std::weak_ptr<Storage> storage;

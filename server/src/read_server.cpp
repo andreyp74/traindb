@@ -1,11 +1,27 @@
-#include "read_server.hpp"
-
 #include "Poco/Util/ServerApplication.h"
 #include "Poco/JSON/Parser.h"
+
+#include "read_server.hpp"
+#include "proto.hpp"
 
 using namespace Poco;
 using namespace Poco::Net;
 using namespace Poco::Util;
+using namespace proto;
+
+Packet ReadServer::receive()
+{
+	std::string msg = net::receive(this->socket());
+    Application::instance().logger().information("Received request: " + msg);
+    return deserialize(msg);
+}
+
+void ReadServer::send(const Packet& packet)
+{
+    auto msg = serialize(packet);
+	net::send(this->socket(), msg);
+    Application::instance().logger().information("Sent: " + msg);
+}
 
 void ReadServer::run()
 {
@@ -17,46 +33,23 @@ void ReadServer::run()
         try
         {
             app.logger().information("Waiting for request...");
-            std::string json = receive();
-            app.logger().information("Received request: " + json);
-
-            JSON::Parser parser;
-            Dynamic::Var result = parser.parse(json);
-            JSON::Object::Ptr object = result.extract<JSON::Object::Ptr>();
-            std::string request = object->getValue<std::string>("pack");
-
-            std::string response_json;
-            if (request == "get")
+            Packet packet = receive();
+            if (packet.packet_type == PacketType::Get)
             {
-                std::string key = object->getValue<std::string>("key");
-
-                std::vector<std::string> resp = storage->get_data(key);
-                std::string values;
-                for (auto& value : resp)
-                {
-                    if (!values.empty())
-                        values += ",";
-                    values += "\"";
-                    values += value;
-                    values += "\"";
-                }
-                response_json = "{ \"pack\" : \"result\", \"values\" : [" + values + "] }";
+                value_type value = storage->get_data(packet.entry.key);
+                //TODO return from storage and send result with version number
+                Packet response(PacketType::Result, Entry{packet.entry.key, value, -1});
+                send(response);
             }
             else
             {
                 throw std::runtime_error("Unsupported request");
             }
-
-            send(response_json);
-
-            app.logger().information("Sent " + response_json);
         }
         catch (Poco::Exception& exc)
         {
-            std::string msg = "{ \"pack\" : \"deny\", \"message\" : \"" + exc.displayText() + "\"}";
-            send(msg);
-
-            app.logger().log(exc);
+            //TODO send deny
+            app.logger().error(exc.displayText());
         }
     }
 

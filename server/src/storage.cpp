@@ -27,7 +27,7 @@ void Storage::put_data(const key_type& key, const value_type& value, ver_type ve
 	ls.add_version(value, version);
 }
 
-std::vector<value_type> Storage::get_data(const key_type& key) const
+value_type Storage::get_data(const key_type& key) const
 {
 	std::vector<value_type> result;
 	bool found = false;
@@ -45,7 +45,7 @@ std::vector<value_type> Storage::get_data(const key_type& key) const
 		file_storage->get_data(key, result);
 	}
 
-	return result;
+	return result.back();
 }
 
 bool Storage::lookup(const key_type& key, std::vector<value_type>& result) const
