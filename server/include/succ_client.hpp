@@ -28,17 +28,14 @@ public:
 	void register_callback(std::function<void(const proto::Packet&)>& call_back);
 
 private:
-    void send_run();
-	void recv_run();
+    void run();
 
 private:
 	net::Client client;
 
-	std::thread send_thread;
-	std::thread recv_thread;
+	std::thread succ_thread;
 
-	std::atomic<bool> send_done;
-	std::atomic<bool> recv_done;
+	std::atomic<bool> done;
 
 	std::mutex queue_mtx;
 	std::deque<Entry> queue;
