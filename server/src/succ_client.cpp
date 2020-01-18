@@ -50,9 +50,6 @@ void SuccClient::run()
 
 			lock.unlock();
 
-			Packet packet(PacketType::Ack, entry);
-			client.send(packet);
-
 			Poco::Timespan timeout;
 			if (client.get_socket().poll(timeout, Poco::Net::Socket::SELECT_READ))
 			{
@@ -61,6 +58,11 @@ void SuccClient::run()
 				{
 					call_back(packet);
 				}
+			}
+			else
+			{
+				Packet packet(PacketType::Ack, entry);
+				client.send(packet);
 			}
 			
 			lock.lock();
