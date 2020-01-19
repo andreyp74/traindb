@@ -33,7 +33,7 @@ namespace net
                 socket.connect(socket_addr); 
                 std::cout << "Connected to " << socket_addr.host().toString() << ":" << socket_addr.port() << std::endl;
             }
-            catch(Poco::Exception err) {
+            catch(Poco::Exception& err) {
                 std::cerr << "Connection failed: " << err.what() << std::endl;
 				throw;
             }
