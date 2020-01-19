@@ -7,15 +7,17 @@
 
 namespace proto
 {
-    enum class PacketType
+    enum PacketType
     {
         Unknown = 0,
-        Set,
-        Get,
-        Ack,
-        Deny,
-        Result
+        Set     = 1,
+        Get     = 2,
+        Ack     = 3,
+        Deny    = 4,
+        Result  = 5
     };
+
+
 
     struct Packet
     {

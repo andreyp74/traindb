@@ -22,8 +22,11 @@ WriteServer::WriteServer(const Poco::Net::StreamSocket& s,
 	storage(storage),
 	succ_client(succ_client)
 {
-	std::function<void(const Packet&)> call_back = std::bind(&WriteServer::on_succ_receive, this, _1);
-	succ_client->register_callback(call_back);
+	if (succ_client)
+	{
+		std::function<void(const Packet&)> call_back = std::bind(&WriteServer::on_succ_receive, this, _1);
+		succ_client->register_callback(call_back);
+	}
 }
 
 Packet WriteServer::receive()

@@ -3,51 +3,70 @@
 #include <iostream>
 #include <sstream>
 
-#include "client.hpp"
+#include "read_client.hpp"
+#include "write_client.hpp"
 
-int main()
+using namespace proto;
+
+enum Mode
 {
-    net::Client client("localhost", 9192);
-	if (!client.connect())
-		std::cerr << "Couldn't connect to server" << std::endl;
+	READ_MODE = 0,
+	WRITE_MODE
+};
 
-	while (true)
+struct ProgramOptions 
+{
+	int port;
+	std::string host;
+	Mode mode;
+
+};
+
+ProgramOptions parse_command_line(int argc, char** argv)
+{
+	ProgramOptions options;
+	for (int i = 0; i < argc;)
 	{
-		try
+		if (strcmp(argv[i], "--port") == 0 && i + 1 < argc)
 		{
-			std::string text;
-			std::getline(std::cin, text);
-
-			std::istringstream iss(text);
-			std::vector<std::string> request((std::istream_iterator<std::string>(iss)),
-				std::istream_iterator<std::string>());
-
-			size_t size = request.size();
-			std::string request_json;
-			if (request[0] == "get")
-			{
-				if (size < 2)
-					throw std::runtime_error("Incorrect get request");
-
-				request_json = "{ \"pack\" : \"get\", \"key\" : \"" + request[1] + "\" }";
-			}
-			else if (request[0] == "set")
-			{
-				if (size < 3)
-					throw std::runtime_error("Incorrect set request");
-
-				request_json = "{ \"pack\" : \"set\", \"key\" : \"" + request[1] + "\", \"value\" : \"" + request[2] + "\" }";
-			}
-			
-			net::send(client.get_socket(), request_json);
-
-			std::string response_json = client.receive();
-			std::cout << "Received " << response_json << std::endl;
+			options.port = std::stoi(argv[++i]);
 		}
-		catch (Poco::Exception err)
+		else if (strcmp(argv[i], "--host") == 0 && i + 1 < argc)
 		{
-			std::cerr << "Error occurred: " << err.what() << std::endl;
+			options.host = argv[++i];
 		}
+		else if (strcmp(argv[i], "--mode") == 0 && i + 1 < argc)
+		{
+			options.mode = strcmp(argv[++i], "read") == 0 ? READ_MODE : WRITE_MODE;
+		}
+		else
+		{
+			++i;
+		}
+	}
+	return options;
+}
+
+
+int main(int argc, char** argv)
+{
+	try
+	{
+		ProgramOptions options = parse_command_line(argc, argv);
+		if (options.mode == Mode::READ_MODE)
+		{
+			ReadClient client(options.port, options.host);
+			client.start();
+		}
+		else if (options.mode == Mode::WRITE_MODE)
+		{
+			WriteClient client(options.port, options.host);
+			client.start();
+		}
+	}
+	catch (std::exception& err)
+	{
+		std::cerr << "Error occurred: " << err.what() << std::endl;
 	}
 
     return 0;

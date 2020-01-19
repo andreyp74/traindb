@@ -27,17 +27,16 @@ namespace net
         {
         }
 
-        bool connect()
+        void connect()
         {
             try {
                 socket.connect(socket_addr); 
-                //std::cout << "Connected to " << socket_addr.host << ":" << socket_addr.port << std::endl;
-                return true;
+                std::cout << "Connected to " << socket_addr.host().toString() << ":" << socket_addr.port() << std::endl;
             }
             catch(Poco::Exception err) {
                 std::cerr << "Connection failed: " << err.what() << std::endl;
+				throw;
             }
-            return false;
         }
 
 		StreamSocket& get_socket()
