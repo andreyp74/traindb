@@ -61,7 +61,7 @@ void SuccClient::run()
 			}
 			else
 			{
-				Packet packet(PacketType::Ack, entry);
+				Packet packet(PacketType::Set, entry);
 				client.send(packet);
 			}
 			
