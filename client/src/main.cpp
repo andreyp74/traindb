@@ -50,18 +50,20 @@ ProgramOptions parse_command_line(int argc, char** argv)
 
 int main(int argc, char** argv)
 {
+	using namespace std::chrono_literals;
+
 	try
 	{
 		ProgramOptions options = parse_command_line(argc, argv);
 		if (options.mode == Mode::READ_MODE)
 		{
-			ReadClient client(options.port, options.host);
-			client.start();
+			ReadClient read_client(options.port, options.host);
+			read_client.start();
 		}
 		else if (options.mode == Mode::WRITE_MODE)
 		{
-			WriteClient client(options.port, options.host);
-			client.start();
+			WriteClient write_client(options.port, options.host);
+			write_client.start();
 		}
 	}
 	catch (std::exception& err)

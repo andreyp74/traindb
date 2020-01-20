@@ -27,6 +27,9 @@ public:
 	{
 		client.connect();
 		client_thread = std::thread(&ReadClient::run, this);
+
+		if (client_thread.joinable())
+			client_thread.join();
 	}
 
 	void stop()

@@ -16,8 +16,6 @@ public:
 		client(host, (Poco::UInt16)port),
 		done(false)
 	{
-		client.connect();
-		client_thread = std::thread(&WriteClient::run, this);
 		std::srand((unsigned int)std::time(nullptr));
 	}
 
@@ -30,6 +28,9 @@ public:
 	{
 		client.connect();
 		client_thread = std::thread(&WriteClient::run, this);
+
+		if (client_thread.joinable())
+			client_thread.join();
 	}
 
 	void stop()
