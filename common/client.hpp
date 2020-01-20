@@ -47,6 +47,7 @@ namespace net
         proto::Packet receive()
         {
             std::string msg = net::receive(this->socket);
+			std::cout << "Received request: " << msg << std::endl;
             return proto::deserialize(msg);
         }
 
@@ -54,6 +55,7 @@ namespace net
         {
             auto msg = proto::serialize(packet);
             net::send(this->socket, msg);
+			std::cout << "Sent: " << msg << std::endl;
         }
 
     private:

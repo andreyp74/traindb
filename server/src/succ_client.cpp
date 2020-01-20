@@ -8,7 +8,8 @@ using namespace proto;
 
 SuccClient::SuccClient(const std::string& host, Poco::UInt16 port) :
 	client(host, port),
-	done(false)
+	done(false),
+	recv_done(false)
 {
 }
 
@@ -16,6 +17,7 @@ void SuccClient::start()
 {
 	client.connect();
 	succ_thread = std::thread(&SuccClient::run, this);
+	recv_thread = std::thread(&SuccClient::recv_run, this);
 }
 
 void SuccClient::stop()
@@ -23,6 +25,11 @@ void SuccClient::stop()
 	queue_ready.notify_one();
 
 	done = true;
+	recv_done = true;
+
+	if (recv_thread.joinable())
+		recv_thread.join();
+
 	if (succ_thread.joinable())
 		succ_thread.join();
 }
@@ -34,6 +41,22 @@ void SuccClient::enqueue(Entry&& item)
 		queue.push_back(std::move(item));
 	}
 	queue_ready.notify_one();
+}
+
+void SuccClient::recv_run()
+{
+	while (!recv_done)
+	{
+		Poco::Timespan timeout(1000);
+		if (client.get_socket().poll(timeout, Poco::Net::Socket::SELECT_READ))
+		{
+			Packet packet = client.receive();
+			for (auto& call_back : call_backs)
+			{
+				call_back(packet);
+			}
+		}
+	}
 }
 
 void SuccClient::run()
@@ -50,20 +73,8 @@ void SuccClient::run()
 
 			lock.unlock();
 
-			Poco::Timespan timeout;
-			if (client.get_socket().poll(timeout, Poco::Net::Socket::SELECT_READ))
-			{
-				Packet packet = client.receive();
-				for (auto& call_back : call_backs)
-				{
-					call_back(packet);
-				}
-			}
-			else
-			{
-				Packet packet(PacketType::Set, entry);
-				client.send(packet);
-			}
+			Packet packet(PacketType::Set, entry);
+			client.send(packet);
 			
 			lock.lock();
 		}

@@ -29,13 +29,16 @@ public:
 
 private:
     void run();
+	void recv_run();
 
 private:
 	net::Client client;
 
 	std::thread succ_thread;
+	std::thread recv_thread;
 
 	std::atomic<bool> done;
+	std::atomic<bool> recv_done;
 
 	std::mutex queue_mtx;
 	std::deque<Entry> queue;

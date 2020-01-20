@@ -48,7 +48,7 @@ void WriteServer::on_succ_receive(const Packet& packet)
 	auto& app = Application::instance();
 
 	std::stringstream ss;
-	ss << "key: " << packet.entry.key << "value: " << packet.entry.value << "version: " << packet.entry.version;
+	ss << "key: " << packet.entry.key << ", value: " << packet.entry.value << ", version: " << packet.entry.version;
 	app.logger().information("Received: " + ss.str());
 
 	if (packet.packet_type == PacketType::Ack)
